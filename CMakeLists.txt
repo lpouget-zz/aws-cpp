@@ -4,7 +4,7 @@ set(EXECUTABLE_NAME aws-cpp)
 
 project(${EXECUTABLE_NAME})
 
-find_package(Boost REQUIRED COMPONENTS program_options)
+find_package(Boost REQUIRED COMPONENTS program_options date_time)
 find_package(OpenSSL REQUIRED)
 
 set(CMAKE_CXX_FLAGS "-g --std=c++11")
