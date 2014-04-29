@@ -9,21 +9,14 @@
 namespace po = boost::program_options;
 
 int main(int argc, char** argv) {
-  AwsSqsService aws_sqs_service;
-  
-  aws_sqs_service.listQueues("");
-  
-// 	po::options_description desc("Allowed options");
-// 	desc.add_options()
-//     		("help", "produce help message")
-//     		("compression", po::value<int>(), "set compression level");
-// 
-// 	po::variables_map vm;
-// 	po::store(po::parse_command_line(argc, argv, desc), vm);
-// 	po::notify(vm);
-// 
-// 	if (vm.count("help")) {
-// 		std::cout << desc << std::endl;
-// 		return 1;
-// 	}
+	Auth auth("YOUR_ACCESS_KEY_ID", "YOUR_SECRET_KEY");
+  AwsSqsService aws_sqs_service(auth);
+
+  std::vector<std::string> queues = aws_sqs_service.listQueues("dev");
+
+  for(std::string value : queues) {
+	std::cout << value << std::endl;
+  }
+
+  aws_sqs_service.receiveMessage(queues[0]);
 }

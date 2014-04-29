@@ -1,15 +1,11 @@
-#include "cpprest/http_client.h"
-
 #include "pplx/pplxtasks.h"
 
-#include "openssl/hmac.h"
-#include "openssl/sha.h"
-
-#include "boost/format.hpp"
-#include "boost/format/group.hpp"
-#include "boost/lexical_cast.hpp"
-#include "boost/date_time/gregorian/gregorian.hpp"
+#include <boost/foreach.hpp>
+#include <boost/lexical_cast.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/xml_parser.hpp>
+#include "openssl/hmac.h"
 
 #include "stdio.h"
 
@@ -23,172 +19,95 @@ web::http::http_response checkResponse(const std::string &url, const web::http::
 	return response;
 }
 
-std::string hash(std::string input, std::string method) {
-	EVP_MD_CTX *mdctx;
-	const EVP_MD *md;
-	unsigned char md_value[EVP_MAX_MD_SIZE];
-	unsigned int md_len, i;
+AwsSqsService::AwsSqsService(Auth auth)
+	: auth(auth){
 
-	OpenSSL_add_all_digests();
-
-	//TODO replace SHA512 by method
-	md = EVP_get_digestbyname("SHA512");
-
-	if(!md) {
-		std::cout << "Unknown message digest " << "SHA512" << std::endl;
-		exit(2);
-	}
-
-	mdctx = EVP_MD_CTX_create();
-	EVP_DigestInit_ex(mdctx, md, NULL);
-	EVP_DigestUpdate(mdctx, input.c_str(), input.length());
-	EVP_DigestFinal_ex(mdctx, md_value, &md_len);
-	EVP_MD_CTX_destroy(mdctx);
-
-	std::ostringstream oss;
-
-	for(i = 0; i < md_len; i++)
-		oss << boost::format("%1$02x") % (unsigned int) md_value[i];
-
-	return oss.str();
-}
-
-std::string createCanonicalRequest(web::http::http_request httpRequest) {
-	web::http::http_request canonicalHttpRequest = httpRequest;
-
-	std::ostringstream oss;
-
-	Concurrency::streams::istream is = httpRequest.body();
-	std::string line;
-
-	while(!is.is_eof()) {
-		unsigned char uc = (unsigned char) is.read().get();
-
-		if(!is.is_eof()) {
-			oss << boost::format("%1$c") % uc;
-		}
-	}
-
-	std::string _hash = hash(oss.str(), "");
-
-	std::cout << "Body Hash : " << _hash << std::endl;
-
-	canonicalHttpRequest.set_body(_hash);
-
-	return canonicalHttpRequest.to_string();
-}
-
-void createSigningKey(std::string date, std::string secretAccessKey, std::string awsRegion, std::string awsService, unsigned char* kSigning) {
-	HMAC_CTX *hctx;
-	const EVP_MD *md;
-	std::string fakeSecretAccessKey = "AWS" + secretAccessKey;
-
-	unsigned char kDate[EVP_MAX_MD_SIZE];
-	unsigned char kRegion[EVP_MAX_MD_SIZE];
-	unsigned char kService[EVP_MAX_MD_SIZE];
-	unsigned int kDate_len, kRegion_len, kService_len, kSigning_len, i;
-
-	//TODO replace SHA512 by method
-	md = EVP_get_digestbyname("SHA512");
-
-	if(!md) {
-		std::cout << "Unknown message digest " << "SHA512" << std::endl;
-		exit(2);
-	}
-
-	HMAC(md, fakeSecretAccessKey.c_str(), fakeSecretAccessKey.length(), reinterpret_cast<const unsigned char *>(date.c_str()), date.length(), kDate, &kDate_len);
-	HMAC(md, kDate, kDate_len, reinterpret_cast<const unsigned char *>(awsRegion.c_str()), awsRegion.length(), kRegion, &kRegion_len);
-	HMAC(md, kRegion, kRegion_len, reinterpret_cast<const unsigned char *>(awsService.c_str()), awsService.length(), kService, &kService_len);
-
-	std::cout << sizeof("aws4_request") << std::endl;
-
-	HMAC(md, kService, kService_len, reinterpret_cast<const unsigned char *>("aws4_request"), sizeof("aws4_request"), kSigning, &kSigning_len);
-
-	std::ostringstream oss;
-
-	for(i = 0; i < kSigning_len; i++)
-		oss << boost::format("%1$d") % (unsigned int) kSigning[i] << " ";
-
-	std::cout << "SigningKey HMAC : " << oss.str() << std::endl;
-}
-
-std::string createStringToSign(std::string date, std::string awsRegion, std::string awsService, std::string canonicalHttpRequestHash) {
-	std::string algorithm = "AWS4-HMAC-SHA512";
-
-	boost::posix_time::ptime t = boost::posix_time::second_clock::local_time();
-	std::ostringstream oss;
-
-	oss << algorithm << std::endl << boost::posix_time::to_iso_string(t) << 'Z' << std::endl << date << '/' << awsRegion << '/' << awsService << '/' << "aws4_request" << std::endl << canonicalHttpRequestHash;
-
-	std::cout << oss.str() << std::endl;
-
-	return oss.str();
-}
-
-std::string createSignature(std::string stringToSign, const unsigned char* signingKey) {
-	HMAC_CTX *hctx;
-	const EVP_MD *md;
-	unsigned char signature[EVP_MAX_MD_SIZE];
-	unsigned int signature_len, i;
-
-	//TODO replace SHA512 by method
-	md = EVP_get_digestbyname("SHA512");
-
-	if(!md) {
-		std::cout << "Unknown message digest " << "SHA512" << std::endl;
-		exit(2);
-	}
-
-	std::cout << sizeof(signingKey) << std::endl;
-
-	HMAC(md, stringToSign.c_str(), stringToSign.length(), signingKey, sizeof(signingKey), signature, &signature_len);
-
-	std::ostringstream oss;
-
-	for(i = 0; i < signature_len; i++)
-		oss << boost::format("%1$d") % (unsigned int) signature[i] << " ";
-
-	std::cout << "Signature HMAC : " << oss.str() << std::endl;
-
-	return oss.str();
 }
 
 std::vector<std::string> AwsSqsService::listQueues(std::string prefix) {
-  utility::string_t address = U("http://www.google.com/");
-
-    web::http::uri uri = web::http::uri(address);
+	boost::posix_time::ptime time = boost::posix_time::second_clock::universal_time();
     web::http::http_request http_request;
+	web::http::uri_builder uri_builder;
+	std::vector<std::string> queues;
+
+	const std::string region = "eu-west-1";
+	const std::string service = "sqs";
+
+// 	uri_builder.set_scheme("http");
+// 	uri_builder.set_host("sqs.eu-west-1.amazonaws.com");
+	uri_builder.set_path("/");
+	uri_builder.set_query("Action=ListQueues&QueueNamePrefix=" + prefix);
+
+	std::cout << "######## " << uri_builder.to_uri().to_string() << std::endl;
+
+	const char* uri = "http://sqs.eu-west-1.amazonaws.com/";
+
+	web::http::client::http_client http_client(uri);
 
 	http_request.set_method(web::http::methods::GET);
-	http_request.set_request_uri(uri);
-	http_request.set_body("Iamabody!");
+	http_request.set_request_uri(uri_builder.to_uri());
+	http_request.headers().add<std::string>("host", "sqs.eu-west-1.amazonaws.com:80");
 
-	boost::gregorian::date date(boost::gregorian::day_clock::local_day());
-	std::ostringstream oss;
+	http_request = this->auth.signRequest(time, http_request, region, service);
 
-	boost::gregorian::date_facet* facet(new boost::gregorian::date_facet("%Y%m%d"));
-	oss.imbue(std::locale(oss.getloc(), facet));
-	oss << date;
-
-    std::cout << http_request.to_string() << std::endl;
-
-	http_request = createCanonicalRequest(http_request);
+	http_request.headers().remove("host");
 
 	std::cout << http_request.to_string() << std::endl;
 
-	std::string canonicalHttpRequestHash = hash(http_request.to_string(), "");
+	web::http::http_response response = http_client.request(http_request).then([=](web::http::http_response response){
+		return response.extract_string();
+	}).then([&](utility::string_t str){
+		std::cout << str << std::endl;
+		boost::property_tree::ptree pt;
 
-	std::cout << "Request Hash : " << canonicalHttpRequestHash << std::endl;
+		std::istringstream iss;
 
-	std::string stringToSign = createStringToSign(oss.str(), "MyRegion", "MyService", canonicalHttpRequestHash);
+		iss.str(str);
 
-	unsigned char signingKey[EVP_MAX_MD_SIZE];
+		boost::property_tree::read_xml(iss, pt);
 
-	createSigningKey(oss.str(), "MySecretKey", "MyRegion", "MyService", signingKey);
-	std::string signature = createSignature(stringToSign, signingKey);
+		BOOST_FOREACH(boost::property_tree::ptree::value_type &v, pt.get_child("ListQueuesResponse.ListQueuesResult"))
+			queues.push_back(v.second.data());
+	}).wait();
+
+	return queues;
+}
+
+std::vector<std::string> AwsSqsService::receiveMessage(std::string queueUrl, std::string attributeName, int maxNumberOfMessages, int visibilityTimeout, int waitTimeSeconds) {
+	boost::posix_time::ptime time = boost::posix_time::second_clock::universal_time();
+	web::http::http_request http_request;
+	web::http::uri_builder uri_builder;
+	std::vector<std::string> queues;
+
+	const std::string region = "eu-west-1";
+	const std::string service = "sqs";
+
+	// 	uri_builder.set_scheme("http");
+	// 	uri_builder.set_host("sqs.eu-west-1.amazonaws.com");
+	uri_builder.set_path("/");
+	uri_builder.set_query("Action=ReceiveMessage&AttributeName=" + attributeName + "&MaxNumberOfMessages=" + boost::lexical_cast<std::string>(maxNumberOfMessages) + "&QueueUrl=" + web::http::uri::encode_data_string(queueUrl) + "&VisibilityTimeout=" + boost::lexical_cast<std::string>(visibilityTimeout) + "&WaitTimeSeconds=" + boost::lexical_cast<std::string>(waitTimeSeconds));
+
+	std::cout << "######## " << uri_builder.to_uri().to_string() << std::endl;
+
+	const char* uri = "http://sqs.eu-west-1.amazonaws.com/";
+
+	web::http::client::http_client http_client(uri);
+
+	http_request.set_method(web::http::methods::GET);
+	http_request.set_request_uri(uri_builder.to_uri());
+	http_request.headers().add<std::string>("host", "sqs.eu-west-1.amazonaws.com:80");
+
+	http_request = this->auth.signRequest(time, http_request, region, service);
+
+	http_request.headers().remove("host");
+
+	std::cout << http_request.to_string() << std::endl;
+
+	web::http::http_response response = http_client.request(http_request).then([=](web::http::http_response response){
+		return response.extract_string();
+	}).then([&](utility::string_t str){
+		std::cout << str << std::endl;
+	}).wait();
 
 	return std::vector<std::string>();
-//     utility::ostringstream_t buf;
-//     buf << U("?request=refresh&name=");
-//     checkResponse("blackjack/dealer", client.request(web::http::methods::PUT, buf.str()).get());
 }
