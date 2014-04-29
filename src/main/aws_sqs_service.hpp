@@ -13,7 +13,7 @@ public:
 	~AwsSqsService(){};
 
 	std::vector<std::string> listQueues(std::string prefix);
-	std::vector<std::string> receiveMessage(std::string queueUrl, std::string attributeName = "all", int maxNumberOfMessages = 1, int visibilityTimeout = 0, int waitTimeSeconds = 0);
+	std::string receiveMessage(std::string queueUrl, std::string attributeName = "all", int maxNumberOfMessages = 1, int visibilityTimeout = 0, int waitTimeSeconds = 0);
 
 private:
 	Auth auth;

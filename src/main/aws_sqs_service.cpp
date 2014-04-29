@@ -52,12 +52,9 @@ std::vector<std::string> AwsSqsService::listQueues(std::string prefix) {
 
 	http_request.headers().remove("host");
 
-	std::cout << http_request.to_string() << std::endl;
-
 	web::http::http_response response = http_client.request(http_request).then([=](web::http::http_response response){
 		return response.extract_string();
 	}).then([&](utility::string_t str){
-		std::cout << str << std::endl;
 		boost::property_tree::ptree pt;
 
 		std::istringstream iss;
@@ -73,11 +70,11 @@ std::vector<std::string> AwsSqsService::listQueues(std::string prefix) {
 	return queues;
 }
 
-std::vector<std::string> AwsSqsService::receiveMessage(std::string queueUrl, std::string attributeName, int maxNumberOfMessages, int visibilityTimeout, int waitTimeSeconds) {
+std::string AwsSqsService::receiveMessage(std::string queueUrl, std::string attributeName, int maxNumberOfMessages, int visibilityTimeout, int waitTimeSeconds) {
 	boost::posix_time::ptime time = boost::posix_time::second_clock::universal_time();
 	web::http::http_request http_request;
 	web::http::uri_builder uri_builder;
-	std::vector<std::string> queues;
+	std::string message;
 
 	const std::string region = "eu-west-1";
 	const std::string service = "sqs";
@@ -101,13 +98,19 @@ std::vector<std::string> AwsSqsService::receiveMessage(std::string queueUrl, std
 
 	http_request.headers().remove("host");
 
-	std::cout << http_request.to_string() << std::endl;
-
 	web::http::http_response response = http_client.request(http_request).then([=](web::http::http_response response){
 		return response.extract_string();
 	}).then([&](utility::string_t str){
-		std::cout << str << std::endl;
+		boost::property_tree::ptree pt;
+
+		std::istringstream iss;
+
+		iss.str(str);
+
+		boost::property_tree::read_xml(iss, pt);
+
+		message = pt.get_optional<std::string>("ReceiveMessageResponse.ReceiveMessageResult.Message.Body").get_value_or("");
 	}).wait();
 
-	return std::vector<std::string>();
+	return message;
 }

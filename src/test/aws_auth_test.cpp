@@ -11,7 +11,7 @@ BOOST_AUTO_TEST_SUITE( test_aws_auth )
 BOOST_AUTO_TEST_CASE( test_aws_auth_hash_payload )
 {
 	std::string payload = "Action=ListUsers&Version=2010-05-08";
-	Auth auth("");
+	Auth auth("", "");
 
 	BOOST_CHECK_EQUAL( auth.hash(payload, ""), "b6359072c78d70ebee1e81adcbab4f01bf2c23245fa365ef83fe8f1f955085e2" );
 }
@@ -19,7 +19,7 @@ BOOST_AUTO_TEST_CASE( test_aws_auth_hash_payload )
 BOOST_AUTO_TEST_CASE( test_aws_auth_hash_empty_payload )
 {
 	std::string payload = "";
-	Auth auth("");
+	Auth auth("", "");
 
 	BOOST_CHECK_EQUAL( auth.hash(payload, ""), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" );
 }
@@ -43,7 +43,7 @@ BOOST_AUTO_TEST_CASE( test_aws_auth_canonicalRequest )
 
 	expected << "GET" << std::endl << "/" << std::endl << "foo=Zoo&foo=aha" << std::endl << "date:Mon, 09 Sep 2011 23:36:00 GMT" << std::endl << "host:host.foo.com" << std::endl << std::endl << "date;host" << std::endl << "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-	Auth auth("");
+	Auth auth("", "");
 
 	BOOST_CHECK_EQUAL( auth.createCanonicalRequest(http_request), expected.str() );
 }
@@ -57,7 +57,7 @@ BOOST_AUTO_TEST_CASE( test_aws_auth_create_signing_key )
 	unsigned char signingKeyRaw[64];
 	unsigned int signingKeyLen;
 
-	Auth auth("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY");
+	Auth auth("", "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY");
 
 	signingKey = auth.createSigningKey(date, awsRegion, awsService, signingKeyRaw, &signingKeyLen);
 
@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE( test_aws_auth_create_signature )
 	std::string awsService = "host";
 	unsigned char signingKeyRaw[64];
 	unsigned int signingKeyLen;
-	Auth auth("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY");
+	Auth auth("", "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY");
 
 	signingKey = auth.createSigningKey(date, awsRegion, awsService, signingKeyRaw, &signingKeyLen);
 
