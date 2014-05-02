@@ -20,6 +20,7 @@ include_directories(
 add_executable( ${EXECUTABLE_NAME}
   src/main/main.cpp
   src/main/aws_sqs_service.cpp
+  src/main/aws_s3_service.cpp
 	src/main/aws_auth.cpp
 )
 
@@ -28,7 +29,7 @@ enable_testing()
 add_test( ${EXECUTABLE_NAME}_test
 	src/test/main_test.cpp
 	src/main/aws_sqs_service.cpp
-  src/test/aws_sqs_service_test.cpp
+	src/test/aws_sqs_service_test.cpp
 )
 
 add_executable( ${EXECUTABLE_NAME}_test
