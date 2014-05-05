@@ -11,11 +11,22 @@ Auth::Auth(const std::string accessKeyId, const std::string secretAccessKey)
 
 }
 
+std::string Auth::hex(const unsigned char * data, const unsigned int dataLength) {
+	std::ostringstream oss;
+
+	for(int i = 0; i < dataLength; i++)
+		oss << boost::format("%1$02x") % (unsigned int) data[i];
+
+	std::cout << "SigningKey HMAC : " << oss.str() << std::endl;
+
+	return oss.str();
+}
+
 std::string Auth::hash(std::string input, std::string method) {
 	EVP_MD_CTX *mdctx;
 	const EVP_MD *md;
 	unsigned char md_value[EVP_MAX_MD_SIZE];
-	unsigned int md_len, i;
+	unsigned int md_len;
 
 	OpenSSL_add_all_digests();
 
@@ -33,12 +44,7 @@ std::string Auth::hash(std::string input, std::string method) {
 	EVP_DigestFinal_ex(mdctx, md_value, &md_len);
 	EVP_MD_CTX_destroy(mdctx);
 
-	std::ostringstream oss;
-
-	for(i = 0; i < md_len; i++)
-		oss << boost::format("%1$02x") % (unsigned int) md_value[i];
-
-	return oss.str();
+	return hex(md_value, md_len);
 }
 
 std::string Auth::createCanonicalRequest(web::http::http_request httpRequest, const bool signedPayload) {
@@ -79,11 +85,7 @@ std::string Auth::createCanonicalRequest(web::http::http_request httpRequest, co
 			strToHash = oss.str();
 		}
 
-		std::string _hash = hash(strToHash, "");
-
-		std::cout << "Body Hash : " << _hash << std::endl;
-
-		canonicalRequest << _hash;
+		canonicalRequest << hash(strToHash, "");
 	} else {
 		canonicalRequest << "UNSIGNED-PAYLOAD";
 	}
@@ -100,7 +102,7 @@ std::string Auth::createSigningKey(std::string date, std::string awsRegion, std:
 	unsigned char kDate[EVP_MAX_MD_SIZE];
 	unsigned char kRegion[EVP_MAX_MD_SIZE];
 	unsigned char kService[EVP_MAX_MD_SIZE];
-	unsigned int kDate_len, kRegion_len, kService_len, i;
+	unsigned int kDate_len, kRegion_len, kService_len;
 
 	md = EVP_get_digestbyname("SHA256");
 
@@ -109,45 +111,23 @@ std::string Auth::createSigningKey(std::string date, std::string awsRegion, std:
 		exit(2);
 	}
 
-	std::ostringstream oss;
-
 	HMAC(md, fakeSecretAccessKey.c_str(), fakeSecretAccessKey.length(), reinterpret_cast<const unsigned char *>(date.c_str()), date.length(), kDate, &kDate_len);
 
-	for(i = 0; i < kDate_len; i++)
-		oss << boost::format("%1$02x") % (unsigned int) kDate[i];
-
-	std::cout << "SigningKey HMAC : " << oss.str() << std::endl;
+	hex(kDate, kDate_len);
 
 	HMAC(md, kDate, kDate_len, reinterpret_cast<const unsigned char *>(awsRegion.c_str()), awsRegion.length(), kRegion, &kRegion_len);
 
-	oss.clear();
-	oss.seekp(0);
-	for(i = 0; i < kRegion_len; i++)
-		oss << boost::format("%1$02x") % (unsigned int) kRegion[i];
-
-	std::cout << "SigningKey HMAC : " << oss.str() << std::endl;
+	hex(kRegion, kRegion_len);
 
 	HMAC(md, kRegion, kRegion_len, reinterpret_cast<const unsigned char *>(awsService.c_str()), awsService.length(), kService, &kService_len);
 
-	oss.clear();
-	oss.seekp(0);
-	for(i = 0; i < kService_len; i++)
-		oss << boost::format("%1$02x") % (unsigned int) kService[i];
-
-	std::cout << "SigningKey HMAC : " << oss.str() << std::endl;
+	hex(kService, kService_len);
 
 	std::string term = "aws4_request";
 
 	HMAC(md, kService, kService_len, reinterpret_cast<const unsigned char *>(term.c_str()), term.length(), signingKey, kSigning_len);
 
-	oss.clear();
-	oss.seekp(0);
-	for(i = 0; i < *kSigning_len; i++)
-		oss << boost::format("%1$02x") % (unsigned int) signingKey[i];
-
-	std::cout << "SigningKey HMAC : " << oss.str() << std::endl;
-
-	return oss.str();
+	return hex(signingKey, *kSigning_len);
 }
 
 std::string Auth::createStringToSign(std::string date, std::string iso_date, std::string awsRegion, std::string awsService, std::string canonicalHttpRequestHash) {
@@ -165,7 +145,7 @@ std::string Auth::createStringToSign(std::string date, std::string iso_date, std
 std::string Auth::createSignature(const std::string stringToSign, const unsigned char* signingKey, const unsigned int kSigning_len) {
 	const EVP_MD *md;
 	unsigned char signature[EVP_MAX_MD_SIZE];
-	unsigned int signature_len, i;
+	unsigned int signature_len;
 
 	//TODO replace SHA512 by method
 	md = EVP_get_digestbyname("SHA256");
@@ -177,14 +157,7 @@ std::string Auth::createSignature(const std::string stringToSign, const unsigned
 
 	HMAC(md, signingKey, kSigning_len, reinterpret_cast<const unsigned char *>(stringToSign.c_str()), stringToSign.length(), signature, &signature_len);
 
-	std::ostringstream oss;
-
-	for(i = 0; i < signature_len; i++)
-		oss << boost::format("%1$02x") % (unsigned int) signature[i];
-
-	std::cout << "Signature HMAC : " << oss.str() << std::endl;
-
-	return oss.str();
+	return hex(signature, signature_len);
 }
 
 web::http::http_request Auth::signRequest(const boost::posix_time::ptime time, web::http::http_request request, const std::string region, const std::string service, const bool signedPayload) {

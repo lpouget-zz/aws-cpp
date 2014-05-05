@@ -10,7 +10,7 @@ public:
 	Auth(const std::string accessKeyId, const std::string secretAccessKey);
 	~Auth() {};
 
-
+	std::string hex(const unsigned char * data, const unsigned int dataLength);
 	std::string hash(std::string input, std::string method);
 	std::string createCanonicalRequest(web::http::http_request httpRequest, const bool signedPayload);
 	std::string createSigningKey(std::string date, std::string awsRegion, std::string awsService, unsigned char * signingKey, unsigned int * kSigning_len);

@@ -12,7 +12,7 @@ public:
 	AwsS3Service(Auth auth);
 	~AwsS3Service(){};
 
-	std::string getObject(std::string bucketName, std::string objectName);
+	std::vector<unsigned char> getObject(std::string bucketName, std::string objectName);
 
 private:
 	Auth auth;
