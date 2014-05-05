@@ -41,7 +41,7 @@ std::string Auth::hash(std::string input, std::string method) {
 	return oss.str();
 }
 
-std::string Auth::createCanonicalRequest(web::http::http_request httpRequest) {
+std::string Auth::createCanonicalRequest(web::http::http_request httpRequest, const bool signedPayload) {
 	std::ostringstream canonicalRequest;
 	std::string headersToSign;
 
@@ -59,30 +59,34 @@ std::string Auth::createCanonicalRequest(web::http::http_request httpRequest) {
 
 	canonicalRequest << std::endl << headersToSign << std::endl;
 
-	Concurrency::streams::istream is = httpRequest.body();
+	if(signedPayload) {
+		Concurrency::streams::istream is = httpRequest.body();
 
-	std::string strToHash = "";
+		std::string strToHash = "";
 
-	if(is.is_valid()) {
-		std::ostringstream oss;
-		std::string line;
+		if(is.is_valid()) {
+			std::ostringstream oss;
+			std::string line;
 
-		while(!is.is_eof()) {
-			unsigned char uc = (unsigned char) is.read().get();
+			while(!is.is_eof()) {
+				unsigned char uc = (unsigned char) is.read().get();
 
-			if(!is.is_eof()) {
-				oss << boost::format("%1$c") % uc;
+				if(!is.is_eof()) {
+					oss << boost::format("%1$c") % uc;
+				}
 			}
+
+			strToHash = oss.str();
 		}
 
-		strToHash = oss.str();
+		std::string _hash = hash(strToHash, "");
+
+		std::cout << "Body Hash : " << _hash << std::endl;
+
+		canonicalRequest << _hash;
+	} else {
+		canonicalRequest << "UNSIGNED-PAYLOAD";
 	}
-
-	std::string _hash = hash(strToHash, "");
-
-	std::cout << "Body Hash : " << _hash << std::endl;
-
-	canonicalRequest << _hash;
 
 	std::cout << "Canonical Request : " << canonicalRequest.str() << std::endl << "@@@@@@@@@@@@@@@@@@@@@@@@@" << std::endl;
 
@@ -183,21 +187,24 @@ std::string Auth::createSignature(const std::string stringToSign, const unsigned
 	return oss.str();
 }
 
-web::http::http_request Auth::signRequest(const boost::posix_time::ptime time, web::http::http_request request, const std::string region, const std::string service) {
+web::http::http_request Auth::signRequest(const boost::posix_time::ptime time, web::http::http_request request, const std::string region, const std::string service, const bool signedPayload) {
 	std::string iso_date = boost::posix_time::to_iso_string(time) + "Z";
 	std::string date = iso_date.substr(0, 8);
 	web::http::uri_builder uri_builder(request.request_uri());
 	std::string escapedString = web::http::uri::encode_data_string(accessKeyId + "/" + boost::posix_time::to_iso_string(time).substr(0, 8) + "/" + region + "/" + service + "/aws4_request");
 
-	uri_builder.append_query("&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=" + escapedString +
+	if(uri_builder.query() != "") {
+		uri_builder.append_query("&");
+	}
+	uri_builder.append_query("X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=" + escapedString +
 	"&X-Amz-Date=" + boost::posix_time::to_iso_string(time) +
-	"Z&X-Amz-SignedHeaders=host");
+	"Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host");
 
 	request.set_request_uri(uri_builder.to_uri());
 
 	std::cout << "Request : " << request.to_string() << std::endl;
 
-	std::string canonicalRequest = createCanonicalRequest(request);
+	std::string canonicalRequest = createCanonicalRequest(request, signedPayload);
 
 	std::string canonicalHttpRequestHash = hash(canonicalRequest, "");
 

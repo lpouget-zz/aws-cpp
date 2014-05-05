@@ -45,7 +45,7 @@ BOOST_AUTO_TEST_CASE( test_aws_auth_canonicalRequest )
 
 	Auth auth("", "");
 
-	BOOST_CHECK_EQUAL( auth.createCanonicalRequest(http_request), expected.str() );
+	BOOST_CHECK_EQUAL( auth.createCanonicalRequest(http_request, true), expected.str() );
 }
 
 BOOST_AUTO_TEST_CASE( test_aws_auth_create_signing_key )
