@@ -13,7 +13,7 @@ BOOST_AUTO_TEST_CASE( test_aws_auth_hash_payload )
 	std::string payload = "Action=ListUsers&Version=2010-05-08";
 	Auth auth("", "");
 
-	BOOST_CHECK_EQUAL( auth.hash(payload, ""), "b6359072c78d70ebee1e81adcbab4f01bf2c23245fa365ef83fe8f1f955085e2" );
+	BOOST_CHECK_EQUAL( auth.hash(payload), "b6359072c78d70ebee1e81adcbab4f01bf2c23245fa365ef83fe8f1f955085e2" );
 }
 
 BOOST_AUTO_TEST_CASE( test_aws_auth_hash_empty_payload )
@@ -21,7 +21,7 @@ BOOST_AUTO_TEST_CASE( test_aws_auth_hash_empty_payload )
 	std::string payload = "";
 	Auth auth("", "");
 
-	BOOST_CHECK_EQUAL( auth.hash(payload, ""), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" );
+	BOOST_CHECK_EQUAL( auth.hash(payload), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" );
 }
 
 BOOST_AUTO_TEST_CASE( test_aws_auth_canonicalRequest )

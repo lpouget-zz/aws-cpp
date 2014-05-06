@@ -43,7 +43,7 @@ std::vector<std::string> AwsSqsService::listQueues(std::string prefix) {
 	http_request.set_request_uri(uri_builder.to_uri());
 	http_request.headers().add<std::string>("host", host);
 
-	http_request = this->auth.signRequest(time, http_request, region, service);
+	http_request = this->auth.signRequestInQuery(time, http_request, region, service);
 
 	http_request.headers().remove("host");
 
@@ -51,6 +51,7 @@ std::vector<std::string> AwsSqsService::listQueues(std::string prefix) {
 		return response.extract_string();
 	}).then([&](utility::string_t str){
 		boost::property_tree::ptree pt;
+		boost::property_tree::ptree empty_pt;
 
 		std::istringstream iss;
 
@@ -58,7 +59,7 @@ std::vector<std::string> AwsSqsService::listQueues(std::string prefix) {
 
 		boost::property_tree::read_xml(iss, pt);
 
-		BOOST_FOREACH(boost::property_tree::ptree::value_type &v, pt.get_child("ListQueuesResponse.ListQueuesResult"))
+		BOOST_FOREACH(boost::property_tree::ptree::value_type &v, pt.get_child_optional("ListQueuesResponse.ListQueuesResult").get_value_or(empty_pt))
 			queues.push_back(v.second.data());
 	}).wait();
 
@@ -85,7 +86,7 @@ AwsSqsMessage AwsSqsService::receiveMessage(std::string queueUrl, std::string at
 	http_request.set_request_uri(uri_builder.to_uri());
 	http_request.headers().add<std::string>("host", host);
 
-	http_request = this->auth.signRequest(time, http_request, region, service);
+	http_request = this->auth.signRequestInQuery(time, http_request, region, service);
 
 	http_request.headers().remove("host");
 
@@ -135,7 +136,7 @@ std::string AwsSqsService::deleteMessage(std::string queueUrl, std::string recei
 	http_request.set_request_uri(uri_builder.to_uri());
 	http_request.headers().add<std::string>("host", host);
 
-	http_request = this->auth.signRequest(time, http_request, region, service);
+	http_request = this->auth.signRequestInQuery(time, http_request, region, service);
 
 	http_request.headers().remove("host");
 

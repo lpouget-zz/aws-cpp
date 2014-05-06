@@ -2,6 +2,10 @@
 #include "openssl/sha.h"
 
 #include <boost/format.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/archive/iterators/base64_from_binary.hpp>
+#include <boost/archive/iterators/transform_width.hpp>
+#include <boost/archive/iterators/ostream_iterator.hpp>
 
 #include "aws_auth.hpp"
 
@@ -9,6 +13,24 @@ Auth::Auth(const std::string accessKeyId, const std::string secretAccessKey)
 : accessKeyId(accessKeyId),
 	secretAccessKey(secretAccessKey) {
 
+}
+
+std::string Auth::base64(const unsigned char * data, const unsigned int dataLength) {
+	std::stringstream os;
+	typedef boost::archive::iterators::base64_from_binary<    // convert binary values ot base64 characters
+		boost::archive::iterators::transform_width<   // retrieve 6 bit integers from a sequence of 8 bit bytes
+			const unsigned char *, 6, 8
+		>
+	>
+	base64_text; // compose all the above operations in to a new iterator
+
+	std::copy(
+		base64_text(data), base64_text(data + dataLength), boost::archive::iterators::ostream_iterator<char>(os)
+	);
+
+	std::cout << os.str();
+
+	return os.str();
 }
 
 std::string Auth::hex(const unsigned char * data, const unsigned int dataLength) {
@@ -31,10 +53,10 @@ std::string Auth::hash(std::string input, std::string method) {
 	OpenSSL_add_all_digests();
 
 	//TODO replace SHA256 by method
-	md = EVP_get_digestbyname("SHA256");
+	md = EVP_get_digestbyname(method.c_str());
 
 	if(!md) {
-		std::cout << "Unknown message digest " << "SHA256" << std::endl;
+		std::cout << "Unknown message digest " << method << std::endl;
 		exit(2);
 	}
 
@@ -57,8 +79,8 @@ std::string Auth::createCanonicalRequest(web::http::http_request httpRequest, co
 
 
 	for(web::http::http_headers::iterator iterator = httpRequest.headers().begin(); iterator != httpRequest.headers().end(); iterator++) {
-		canonicalRequest << iterator->first << ":" << iterator->second << std::endl;
-		headersToSign += iterator->first + ";";
+		canonicalRequest << boost::algorithm::to_lower_copy<std::string>(iterator->first) << ":" << iterator->second << std::endl;
+		headersToSign += boost::algorithm::to_lower_copy<std::string>(iterator->first) + ";";
 	}
 
 	headersToSign = headersToSign.substr(0, headersToSign.size() - 1);
@@ -85,7 +107,7 @@ std::string Auth::createCanonicalRequest(web::http::http_request httpRequest, co
 			strToHash = oss.str();
 		}
 
-		canonicalRequest << hash(strToHash, "");
+		canonicalRequest << hash(strToHash);
 	} else {
 		canonicalRequest << "UNSIGNED-PAYLOAD";
 	}
@@ -160,7 +182,7 @@ std::string Auth::createSignature(const std::string stringToSign, const unsigned
 	return hex(signature, signature_len);
 }
 
-web::http::http_request Auth::signRequest(const boost::posix_time::ptime time, web::http::http_request request, const std::string region, const std::string service, const bool signedPayload) {
+web::http::http_request Auth::signRequestInQuery(const boost::posix_time::ptime time, web::http::http_request request, const std::string region, const std::string service, const bool signedPayload) {
 	std::string iso_date = boost::posix_time::to_iso_string(time) + "Z";
 	std::string date = iso_date.substr(0, 8);
 	web::http::uri_builder uri_builder(request.request_uri());
@@ -169,17 +191,28 @@ web::http::http_request Auth::signRequest(const boost::posix_time::ptime time, w
 	if(uri_builder.query() != "") {
 		uri_builder.append_query("&");
 	}
+
+	std::string headersToSign;
+
+	for(web::http::http_headers::iterator iterator = request.headers().begin(); iterator != request.headers().end(); iterator++) {
+		headersToSign += boost::algorithm::to_lower_copy<std::string>(iterator->first) + ";";
+	}
+
+	headersToSign = headersToSign.substr(0, headersToSign.size() - 1);
+
+	std::cout << "Signed headers : " << headersToSign << std::endl;
+
 	uri_builder.append_query("X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=" + escapedString +
 	"&X-Amz-Date=" + boost::posix_time::to_iso_string(time) +
-	"Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host");
+	"Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=" + web::http::uri::encode_data_string(headersToSign));
 
 	request.set_request_uri(uri_builder.to_uri());
 
-	std::cout << "Request : " << request.to_string() << std::endl;
+// 	std::cout << "Request : " << request.to_string() << std::endl;
 
 	std::string canonicalRequest = createCanonicalRequest(request, signedPayload);
 
-	std::string canonicalHttpRequestHash = hash(canonicalRequest, "");
+	std::string canonicalHttpRequestHash = hash(canonicalRequest);
 
 	std::cout << "Request Hash : " << canonicalHttpRequestHash << std::endl;
 
@@ -193,6 +226,59 @@ web::http::http_request Auth::signRequest(const boost::posix_time::ptime time, w
 	uri_builder.append_query("&X-Amz-Signature=" + createSignature(stringToSign, signingKeyRaw, signingKeyLen));
 
 	request.set_request_uri(uri_builder.to_uri());
+
+	return request;
+}
+
+web::http::http_request Auth::signRequestInHeaders(const boost::posix_time::ptime time, web::http::http_request request, const std::string region, const std::string service, const bool signedPayload) {
+	std::string iso_date = boost::posix_time::to_iso_string(time) + "Z";
+	std::string date = iso_date.substr(0, 8);
+	web::http::uri_builder uri_builder(request.request_uri());
+	std::string escapedString = web::http::uri::encode_data_string(accessKeyId + "/" + boost::posix_time::to_iso_string(time).substr(0, 8) + "/" + region + "/" + service + "/aws4_request");
+
+	request.headers().add<std::string>("X-Amz-Algorithm", "AWS4-HMAC-SHA256");
+	request.headers().add<std::string>("X-Amz-Credential", escapedString);
+	request.headers().add<std::string>("X-Amz-Date", boost::posix_time::to_iso_string(time));
+	request.headers().add<std::string>("X-Amz-Expires", "86400");
+
+	std::string headersToSign;
+
+	for(web::http::http_headers::iterator iterator = request.headers().begin(); iterator != request.headers().end(); iterator++) {
+		headersToSign += boost::algorithm::to_lower_copy<std::string>(iterator->first) + ";";
+	}
+
+	headersToSign = headersToSign.substr(0, headersToSign.size() - 1);
+
+	std::cout << "Signed headers : " << headersToSign << std::endl;
+
+	uri_builder.append_query("X-Amz-SignedHeaders=" + web::http::uri::encode_data_string(headersToSign));
+	request.headers().add<std::string>("X-Amz-SignedHeaders", escapedString);
+
+	request.set_request_uri(uri_builder.to_uri());
+
+	std::cout << "Request : " << request.to_string() << std::endl;
+
+	std::string canonicalRequest = createCanonicalRequest(request, signedPayload);
+
+	std::string canonicalHttpRequestHash = hash(canonicalRequest);
+
+	std::cout << "Request Hash : " << canonicalHttpRequestHash << std::endl;
+
+	std::string stringToSign = createStringToSign(date, iso_date, region, service, canonicalHttpRequestHash);
+
+	unsigned char signingKeyRaw[EVP_MAX_MD_SIZE];
+	unsigned int signingKeyLen;
+
+	std::string signingKey = createSigningKey(date, region, service, signingKeyRaw, &signingKeyLen);
+
+	std::cout << "Before" << std::endl;
+
+	uri_builder.append_query("&X-Amz-Signature=" + createSignature(stringToSign, signingKeyRaw, signingKeyLen));
+
+	std::cout << "After" << std::endl;
+	request.set_request_uri(uri_builder.to_uri());
+
+	std::cout << "After" << std::endl;
 
 	return request;
 }

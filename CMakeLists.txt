@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 2.6)
 
 set(EXECUTABLE_NAME aws-cpp)
 
-project(${EXECUTABLE_NAME})
+project(aws-cpp)
 
 find_package(Boost REQUIRED COMPONENTS program_options date_time)
 find_package(OpenSSL REQUIRED)
@@ -17,27 +17,29 @@ include_directories(
   ${OPENSSL_INCLUDE_DIR}
 )
 
-add_executable( ${EXECUTABLE_NAME}
-  src/main/main.cpp
+add_library( "lib${EXECUTABLE_NAME}"
   src/main/aws_sqs_service.cpp
   src/main/aws_s3_service.cpp
 	src/main/aws_auth.cpp
 )
 
+link_directories(${aws-cpp_BINARY_DIR}/libaws-cpp)
+
+# add_library("lib${EXECUTABLE_NAME}" $<TARGET_OBJECTS:"${EXECUTABLE_NAME}_obj">)
+
 enable_testing()
 
-add_test( ${EXECUTABLE_NAME}_test
+add_test( ${EXECUTABLE_NAME}
 	src/test/main_test.cpp
 	src/main/aws_sqs_service.cpp
 	src/test/aws_sqs_service_test.cpp
 )
 
-add_executable( ${EXECUTABLE_NAME}_test
+add_executable( ${EXECUTABLE_NAME}
 	src/test/main_test.cpp
-	src/main/aws_sqs_service.cpp
-	src/main/aws_auth.cpp
+	src/test/integration_test.cpp
 	src/test/aws_auth_test.cpp
-  )
+)
 
-target_link_libraries(${EXECUTABLE_NAME} "-l:/usr/local/lib/libcasablanca.so" ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES})
-target_link_libraries(${EXECUTABLE_NAME}_test "-l:/usr/local/lib/libcasablanca.so" ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES})
+target_link_libraries("lib${EXECUTABLE_NAME}" "-l:/usr/local/lib/libcasablanca.so" ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES})
+target_link_libraries(${EXECUTABLE_NAME} libaws-cpp "-l:/usr/local/lib/libcasablanca.so" ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES})
