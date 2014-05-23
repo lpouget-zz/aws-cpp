@@ -17,7 +17,7 @@ include_directories(
   ${OPENSSL_INCLUDE_DIR}
 )
 
-add_library( "${EXECUTABLE_NAME}"
+add_library( "${EXECUTABLE_NAME}" SHARED
   src/main/aws_sqs_service.cpp
   src/main/aws_s3_service.cpp
 	src/main/aws_auth.cpp

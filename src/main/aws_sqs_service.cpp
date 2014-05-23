@@ -89,7 +89,6 @@ AwsSqsMessage AwsSqsService::receiveMessage(std::string queueUrl, std::string at
 	web::http::http_response response = http_client.request(http_request).then([=](web::http::http_response response){
 		return response.extract_string();
 	}).then([&](utility::string_t str){
-		std::cout << str << std::endl;
 		boost::property_tree::ptree pt;
 
 		std::istringstream iss;
