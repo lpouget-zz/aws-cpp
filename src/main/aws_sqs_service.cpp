@@ -35,8 +35,6 @@ std::vector<std::string> AwsSqsService::listQueues(std::string prefix) {
 	uri_builder.set_path("/");
 	uri_builder.set_query("Action=ListQueues&QueueNamePrefix=" + prefix);
 
-	std::cout << "######## " << uri_builder.to_uri().to_string() << std::endl;
-
 	web::http::client::http_client http_client(uri);
 
 	http_request.set_method(web::http::methods::GET);
@@ -77,8 +75,6 @@ AwsSqsMessage AwsSqsService::receiveMessage(std::string queueUrl, std::string at
 	// 	uri_builder.set_host("sqs.eu-west-1.amazonaws.com");
 	uri_builder.set_path("/");
 	uri_builder.set_query("Action=ReceiveMessage&AttributeName=" + attributeName + "&MaxNumberOfMessages=" + boost::lexical_cast<std::string>(maxNumberOfMessages) + "&QueueUrl=" + web::http::uri::encode_data_string(queueUrl) + "&VisibilityTimeout=" + boost::lexical_cast<std::string>(visibilityTimeout) + "&WaitTimeSeconds=" + boost::lexical_cast<std::string>(waitTimeSeconds));
-
-	std::cout << "######## " << uri_builder.to_uri().to_string() << std::endl;
 
 	web::http::client::http_client http_client(uri);
 
@@ -128,8 +124,6 @@ std::string AwsSqsService::deleteMessage(std::string queueUrl, std::string recei
 	uri_builder.set_path("/");
 	uri_builder.set_query("Action=DeleteMessage&QueueUrl=" + web::http::uri::encode_data_string(queueUrl) + "&ReceiptHandle=" + web::http::uri::encode_data_string(receiptHandle));
 
-	std::cout << "######## " << uri_builder.to_uri().to_string() << std::endl;
-
 	web::http::client::http_client http_client(uri);
 
 	http_request.set_method(web::http::methods::GET);
@@ -143,7 +137,7 @@ std::string AwsSqsService::deleteMessage(std::string queueUrl, std::string recei
 	web::http::http_response response = http_client.request(http_request).then([=](web::http::http_response response){
 		return response.extract_string();
 	}).then([&](utility::string_t str){
-		std::cout << str << std::endl;
+		message = str;
 	}).wait();
 
 	return message;

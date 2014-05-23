@@ -17,7 +17,7 @@ include_directories(
   ${OPENSSL_INCLUDE_DIR}
 )
 
-add_library( "lib${EXECUTABLE_NAME}"
+add_library( "${EXECUTABLE_NAME}"
   src/main/aws_sqs_service.cpp
   src/main/aws_s3_service.cpp
 	src/main/aws_auth.cpp
@@ -29,17 +29,17 @@ link_directories(${aws-cpp_BINARY_DIR}/libaws-cpp)
 
 enable_testing()
 
-add_test( ${EXECUTABLE_NAME}
+add_test( "${EXECUTABLE_NAME}-test"
 	src/test/main_test.cpp
 	src/main/aws_sqs_service.cpp
 	src/test/aws_sqs_service_test.cpp
 )
 
-add_executable( ${EXECUTABLE_NAME}
+add_executable( "${EXECUTABLE_NAME}-test"
 	src/test/main_test.cpp
 	src/test/integration_test.cpp
 	src/test/aws_auth_test.cpp
 )
 
-target_link_libraries("lib${EXECUTABLE_NAME}" "-l:/usr/local/lib/libcasablanca.so" ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES})
-target_link_libraries(${EXECUTABLE_NAME} libaws-cpp "-l:/usr/local/lib/libcasablanca.so" ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES})
+target_link_libraries(${EXECUTABLE_NAME} "-l:/usr/local/lib/libcasablanca.so" ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES})
+target_link_libraries("${EXECUTABLE_NAME}-test" aws-cpp "-l:/usr/local/lib/libcasablanca.so" ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES})

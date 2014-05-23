@@ -9,9 +9,10 @@
 
 #include "aws_auth.hpp"
 
-Auth::Auth(const std::string accessKeyId, const std::string secretAccessKey)
+Auth::Auth(const std::string accessKeyId, const std::string secretAccessKey, const bool verbose)
 : accessKeyId(accessKeyId),
-	secretAccessKey(secretAccessKey) {
+	secretAccessKey(secretAccessKey),
+	verbose(verbose){
 
 }
 
@@ -39,7 +40,9 @@ std::string Auth::hex(const unsigned char * data, const unsigned int dataLength)
 	for(int i = 0; i < dataLength; i++)
 		oss << boost::format("%1$02x") % (unsigned int) data[i];
 
-	std::cout << "SigningKey HMAC : " << oss.str() << std::endl;
+	if(verbose) {
+		std::cout << "SigningKey HMAC : " << oss.str() << std::endl;
+	}
 
 	return oss.str();
 }
@@ -112,7 +115,9 @@ std::string Auth::createCanonicalRequest(web::http::http_request httpRequest, co
 		canonicalRequest << "UNSIGNED-PAYLOAD";
 	}
 
-	std::cout << "Canonical Request : " << canonicalRequest.str() << std::endl << "@@@@@@@@@@@@@@@@@@@@@@@@@" << std::endl;
+	if(verbose) {
+		std::cout << "Canonical Request : " << canonicalRequest.str() << std::endl << "@@@@@@@@@@@@@@@@@@@@@@@@@" << std::endl;
+	}
 
 	return canonicalRequest.str();
 }
@@ -159,7 +164,9 @@ std::string Auth::createStringToSign(std::string date, std::string iso_date, std
 
 	oss << algorithm << std::endl << iso_date << std::endl << date << '/' << awsRegion << '/' << awsService << '/' << "aws4_request" << std::endl << canonicalHttpRequestHash;
 
-	std::cout << oss.str() << std::endl;
+	if(verbose) {
+		std::cout << oss.str() << std::endl;
+	}
 
 	return oss.str();
 }
@@ -200,7 +207,9 @@ web::http::http_request Auth::signRequestInQuery(const boost::posix_time::ptime 
 
 	headersToSign = headersToSign.substr(0, headersToSign.size() - 1);
 
-	std::cout << "Signed headers : " << headersToSign << std::endl;
+	if(verbose) {
+		std::cout << "Signed headers : " << headersToSign << std::endl;
+	}
 
 	uri_builder.append_query("X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=" + escapedString +
 	"&X-Amz-Date=" + boost::posix_time::to_iso_string(time) +
@@ -214,7 +223,9 @@ web::http::http_request Auth::signRequestInQuery(const boost::posix_time::ptime 
 
 	std::string canonicalHttpRequestHash = hash(canonicalRequest);
 
-	std::cout << "Request Hash : " << canonicalHttpRequestHash << std::endl;
+	if(verbose) {
+		std::cout << "Request Hash : " << canonicalHttpRequestHash << std::endl;
+	}
 
 	std::string stringToSign = createStringToSign(date, iso_date, region, service, canonicalHttpRequestHash);
 
@@ -249,20 +260,26 @@ web::http::http_request Auth::signRequestInHeaders(const boost::posix_time::ptim
 
 	headersToSign = headersToSign.substr(0, headersToSign.size() - 1);
 
-	std::cout << "Signed headers : " << headersToSign << std::endl;
+	if(verbose) {
+		std::cout << "Signed headers : " << headersToSign << std::endl;
+	}
 
 	uri_builder.append_query("X-Amz-SignedHeaders=" + web::http::uri::encode_data_string(headersToSign));
 	request.headers().add<std::string>("X-Amz-SignedHeaders", escapedString);
 
 	request.set_request_uri(uri_builder.to_uri());
 
-	std::cout << "Request : " << request.to_string() << std::endl;
+	if(verbose) {
+		std::cout << "Request : " << request.to_string() << std::endl;
+	}
 
 	std::string canonicalRequest = createCanonicalRequest(request, signedPayload);
 
 	std::string canonicalHttpRequestHash = hash(canonicalRequest);
 
-	std::cout << "Request Hash : " << canonicalHttpRequestHash << std::endl;
+	if(verbose) {
+		std::cout << "Request Hash : " << canonicalHttpRequestHash << std::endl;
+	}
 
 	std::string stringToSign = createStringToSign(date, iso_date, region, service, canonicalHttpRequestHash);
 
@@ -271,14 +288,20 @@ web::http::http_request Auth::signRequestInHeaders(const boost::posix_time::ptim
 
 	std::string signingKey = createSigningKey(date, region, service, signingKeyRaw, &signingKeyLen);
 
-	std::cout << "Before" << std::endl;
+	if(verbose) {
+		std::cout << "Before" << std::endl;
+	}
 
 	uri_builder.append_query("&X-Amz-Signature=" + createSignature(stringToSign, signingKeyRaw, signingKeyLen));
 
-	std::cout << "After" << std::endl;
+	if(verbose) {
+		std::cout << "After" << std::endl;
+	}
 	request.set_request_uri(uri_builder.to_uri());
 
-	std::cout << "After" << std::endl;
+	if(verbose) {
+		std::cout << "After" << std::endl;
+	}
 
 	return request;
 }

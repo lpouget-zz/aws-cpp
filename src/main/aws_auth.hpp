@@ -7,7 +7,7 @@
 
 class Auth {
 public:
-	Auth(const std::string accessKeyId, const std::string secretAccessKey);
+	Auth(const std::string accessKeyId, const std::string secretAccessKey, const bool verbose = false);
 	~Auth() {};
 
 	std::string base64(const unsigned char * data, const unsigned int dataLength);
@@ -23,6 +23,7 @@ public:
 private:
 	const std::string accessKeyId;
 	const std::string secretAccessKey;
+	const bool verbose;
 };
 
 
