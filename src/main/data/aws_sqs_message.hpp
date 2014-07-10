@@ -4,6 +4,8 @@
 
 class AwsSqsMessage {
 public:
+	AwsSqsMessage() {};
+
 	AwsSqsMessage(std::string body, std::string md5OfBody, std::string receiptHandle, std::string messageId) :
 		body(body),
 		md5OfBody(md5OfBody),
