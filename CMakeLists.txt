@@ -18,9 +18,10 @@ include_directories(
 )
 
 add_library( "${EXECUTABLE_NAME}" SHARED
-  src/main/aws_sqs_service.cpp
-  src/main/aws_s3_service.cpp
+	src/main/aws_sqs_service.cpp
+	src/main/aws_s3_service.cpp
 	src/main/aws_auth.cpp
+	src/main/aws_get_request.cpp
 )
 
 link_directories(${aws-cpp_BINARY_DIR}/libaws-cpp)
