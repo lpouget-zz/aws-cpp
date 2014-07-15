@@ -44,3 +44,10 @@ add_executable( "${EXECUTABLE_NAME}-test"
 
 target_link_libraries(${EXECUTABLE_NAME} "-l:/usr/local/lib/libcasablanca.so" ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES})
 target_link_libraries("${EXECUTABLE_NAME}-test" aws-cpp "-l:/usr/local/lib/libcasablanca.so" ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES})
+
+install(TARGETS ${EXECUTABLE_NAME} 
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib)
+
+install(DIRECTORY src/main DESTINATION include/${EXECUTABLE_NAME} FILES_MATCHING PATTERN "*.hpp")
+
