@@ -29,7 +29,9 @@ std::string Auth::base64(const unsigned char * data, const unsigned int dataLeng
 		base64_text(data), base64_text(data + dataLength), boost::archive::iterators::ostream_iterator<char>(os)
 	);
 
-	std::cout << os.str();
+	if(verbose) {
+		std::cout << os.str();
+	}
 
 	return os.str();
 }

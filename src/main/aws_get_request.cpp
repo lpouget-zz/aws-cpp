@@ -22,8 +22,9 @@
 AwsGetRequest::AwsGetRequest(Auth auth, std::string region, std::string service)
 	: auth(auth),
 		region(region),
-		
-		uri()
+		service(service),
+		host(service + "." + region + ".amazonaws.com:80"),
+		uri(std::string().append("http://").append(host).append("/"))	
 {
 }
 

@@ -14,18 +14,32 @@
 #include "aws_sqs_service.hpp"
 #include "aws_sqs_exception.hpp"
 
-AwsSqsService::AwsSqsService(Auth auth, std::string region)
-	: awsGetRequest(auth, region, service),
-	host(service + "." + region + ".amazonaws.com:80"),
-	http_client(std::string().append("http://").append(host).append("/")){
+AwsSqsService::AwsSqsService(Auth auth, const std::string region) {
+	host = std::unique_ptr<std::string>(new std::string(this->service + "." + region + ".amazonaws.com:80"));
+	uri = std::unique_ptr<web::uri>(new web::uri(U(std::string("http://") + *host + std::string("/"))));
+	http_client = std::unique_ptr<web::http::client::http_client>(new web::http::client::http_client(*uri));
+	awsGetRequest = std::unique_ptr<AwsGetRequest>(new AwsGetRequest(auth, region, this->service));
+}
 
+AwsSqsService::AwsSqsService(AwsSqsService && awsSqsService) :
+	host(std::move(awsSqsService.host)),
+	uri(std::move(awsSqsService.uri)),
+	http_client(std::move(awsSqsService.http_client)),
+	awsGetRequest(std::move(awsSqsService.awsGetRequest)) {
+}
+
+AwsSqsService & AwsSqsService::operator=(AwsSqsService && awsSqsService) {
+        host = std::move(awsSqsService.host);
+        uri = std::move(awsSqsService.uri);
+        http_client = std::move(awsSqsService.http_client);
+        awsGetRequest = std::move(awsSqsService.awsGetRequest);
 }
 
 std::vector<std::string> AwsSqsService::listQueues(std::string prefix) {
 	try {
-		web::http::http_request http_request = awsGetRequest.getSignedHttpRequest("Action=ListQueues&QueueNamePrefix=" + prefix);
+		web::http::http_request http_request = awsGetRequest->getSignedHttpRequest("Action=ListQueues&QueueNamePrefix=" + prefix);
 
-		return http_client.request(http_request).then([=](web::http::http_response response){
+		return http_client->request(http_request).then([=](web::http::http_response response){
 			return response.extract_string();
 		}).then([&](utility::string_t str){
 			std::vector<std::string> queues;
@@ -44,19 +58,20 @@ std::vector<std::string> AwsSqsService::listQueues(std::string prefix) {
 			return queues;
 		}).get();
 	} catch (const std::system_error & e) {
-		throw new AwsSqsException(e);
+		throw AwsSqsException(e);
 	} catch (const std::exception & e) {
-		throw new AwsSqsException(e);
+		throw AwsSqsException(e);
 	} catch (...) {
 		//Unknown exception...
+		throw AwsSqsException();
 	}
 }
 
 AwsSqsMessage AwsSqsService::receiveMessage(std::string queueUrl, std::string attributeName, int maxNumberOfMessages, int visibilityTimeout, int waitTimeSeconds) {
 	try {
-		web::http::http_request http_request = awsGetRequest.getSignedHttpRequest("Action=ReceiveMessage&AttributeName=" + attributeName + "&MaxNumberOfMessages=" + boost::lexical_cast<std::string>(maxNumberOfMessages) + "&QueueUrl=" + web::http::uri::encode_data_string(queueUrl) + "&VisibilityTimeout=" + boost::lexical_cast<std::string>(visibilityTimeout) + "&WaitTimeSeconds=" + boost::lexical_cast<std::string>(waitTimeSeconds));
+		web::http::http_request http_request = awsGetRequest->getSignedHttpRequest("Action=ReceiveMessage&AttributeName=" + attributeName + "&MaxNumberOfMessages=" + boost::lexical_cast<std::string>(maxNumberOfMessages) + "&QueueUrl=" + web::http::uri::encode_data_string(queueUrl) + "&VisibilityTimeout=" + boost::lexical_cast<std::string>(visibilityTimeout) + "&WaitTimeSeconds=" + boost::lexical_cast<std::string>(waitTimeSeconds));
 
-		AwsSqsMessage aws_sqs_message = http_client.request(http_request).then([=](web::http::http_response response){
+		AwsSqsMessage aws_sqs_message = http_client->request(http_request).then([=](web::http::http_response response){
 			return response.extract_string();
 		}).then([=](utility::string_t str){
 			boost::property_tree::ptree pt;
@@ -80,19 +95,20 @@ AwsSqsMessage AwsSqsService::receiveMessage(std::string queueUrl, std::string at
 
 		return aws_sqs_message;
 	} catch (const std::system_error & e) {
-		throw new AwsSqsException(e);
+		throw AwsSqsException(e);
 	} catch (const std::exception & e) {
-		throw new AwsSqsException(e);
+		throw AwsSqsException(e);
 	} catch (...) {
 		//Unknown exception...
+		throw AwsSqsException();
 	}
 }
 
 std::string AwsSqsService::sendMessage(std::string queueUrl, std::string message, int delaySeconds) {
 	try {
-		web::http::http_request http_request = awsGetRequest.getSignedHttpRequest("Action=SendMessage&QueueUrl=" + web::http::uri::encode_data_string(queueUrl) + "&MessageBody=" + web::http::uri::encode_data_string(message) + "&DelaySeconds=" + boost::lexical_cast<std::string>(delaySeconds));
+		web::http::http_request http_request = awsGetRequest->getSignedHttpRequest("Action=SendMessage&QueueUrl=" + web::http::uri::encode_data_string(queueUrl) + "&MessageBody=" + web::http::uri::encode_data_string(message) + "&DelaySeconds=" + boost::lexical_cast<std::string>(delaySeconds));
 
-		return http_client.request(http_request).then([=](web::http::http_response response){
+		return http_client->request(http_request).then([=](web::http::http_response response){
 			return response.extract_string();
 		}).then([=](utility::string_t str){
 			return str;
@@ -116,9 +132,9 @@ std::string AwsSqsService::deleteMessage(std::string queueUrl, AwsSqsMessage aws
 
 std::string AwsSqsService::deleteMessage(std::string queueUrl, std::string receiptHandle) {
 	try {
-		web::http::http_request http_request = awsGetRequest.getSignedHttpRequest("Action=DeleteMessage&QueueUrl=" + web::http::uri::encode_data_string(queueUrl) + "&ReceiptHandle=" + web::http::uri::encode_data_string(receiptHandle));
+		web::http::http_request http_request = awsGetRequest->getSignedHttpRequest("Action=DeleteMessage&QueueUrl=" + web::http::uri::encode_data_string(queueUrl) + "&ReceiptHandle=" + web::http::uri::encode_data_string(receiptHandle));
 
-		return http_client.request(http_request).then([=](web::http::http_response response){
+		return http_client->request(http_request).then([=](web::http::http_response response){
 			return response.extract_string();
 		}).then([=](utility::string_t str){
 			return str;

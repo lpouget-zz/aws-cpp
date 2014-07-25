@@ -85,6 +85,7 @@ void AwsS3Service::putObject(std::string bucketName, std::string objectName, std
 	web::http::http_response response = http_client.request(http_request).then([=](web::http::http_response response){
 		return response.extract_string();
 	}).then([=](utility::string_t str){
-		std::cout << str << std::endl;
+		//TODO handle return message
+		//std::cout << str << std::endl;
 	}).wait();
 }

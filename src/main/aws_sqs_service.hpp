@@ -11,7 +11,8 @@
 
 class AwsSqsService {
 public:
-	AwsSqsService(Auth auth, std::string region);
+	AwsSqsService(Auth auth, const std::string region);
+	AwsSqsService(AwsSqsService && awsSqsService);
 	~AwsSqsService(){};
 
 	std::vector<std::string> listQueues(std::string prefix);
@@ -20,9 +21,12 @@ public:
 	std::string deleteMessage(std::string queueUrl, AwsSqsMessage aws_sqs_message);
 	std::string deleteMessage(std::string queueUrl, std::string receiptHandle);
 
+	AwsSqsService & operator=(AwsSqsService && awsSqsService);
+
 private:
-	AwsGetRequest awsGetRequest;
-	web::http::client::http_client http_client;
 	const std::string service = "sqs";
-	std::string host;
+	std::unique_ptr<std::string> host;
+	std::unique_ptr<web::uri> uri;
+	std::unique_ptr<web::http::client::http_client> http_client;
+	std::unique_ptr<AwsGetRequest> awsGetRequest;
 };

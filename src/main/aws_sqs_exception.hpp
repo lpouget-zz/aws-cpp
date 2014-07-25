@@ -3,17 +3,16 @@
 #include <string>
 #include <exception>
 #include <system_error>
-#include <string.h>
 
-class AwsSqsException  : std::exception {
+class AwsSqsException : std::exception {
 private:
-	const std::exception exception;
+	const std::string m_what;
 public:
-	AwsSqsException(const std::exception & exception) : exception(exception) {
+	AwsSqsException(const std::exception & exception) : m_what(exception.what()) {
 
 	}
 
-	AwsSqsException(const std::system_error & system_error) : exception(system_error) {
+	AwsSqsException() : m_what("") {
 
 	}
 
@@ -21,6 +20,6 @@ public:
 
 	virtual const char* what() const throw()
 	{
-		return strcat((char *) "Aws Sqs Exception with cause : " , exception.what());
+		return std::string("Aws Sqs Exception with cause : "  + m_what).c_str();
 	}
 };

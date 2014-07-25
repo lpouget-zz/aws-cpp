@@ -32,10 +32,10 @@ public:
 private:
 	web::http::http_request http_request;
 	Auth auth;
-	const std::string region;
-	const std::string service = "sqs";
-	const std::string host;
-	const std::string  uri;
+	std::string region;
+	std::string service;
+	std::string host;
+	std::string  uri;
 };
 
 #endif // AWSGETREQUEST_H
