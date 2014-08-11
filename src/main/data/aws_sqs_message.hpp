@@ -2,7 +2,9 @@
 
 #include <string>
 
-class AwsSqsMessage {
+#include<data/aws_object.hpp>
+
+class AwsSqsMessage : AwsObject {
 public:
 	AwsSqsMessage() {};
 

@@ -4,6 +4,7 @@
 
 #include <boost/algorithm/string/replace.hpp>
 #include "pplx/pplxtasks.h"
+#include <cpprest/http_msg.h>
 
 #include "aws_s3_service.hpp"
 
@@ -12,7 +13,7 @@ AwsS3Service::AwsS3Service(Auth auth)
 
 }
 
-std::vector<unsigned char> AwsS3Service::getObject(std::string bucketName, std::string objectName) {
+AwsResponse<AwsS3Object> AwsS3Service::getObject(std::string bucketName, std::string objectName) {
 	boost::posix_time::ptime time = boost::posix_time::second_clock::universal_time();
 	web::http::http_request http_request;
 	web::http::uri_builder uri_builder;
@@ -39,8 +40,13 @@ std::vector<unsigned char> AwsS3Service::getObject(std::string bucketName, std::
 	http_request.headers().remove("host");
 
 	web::http::http_response response = http_client.request(http_request).get();
+// 	std::vector<unsigned char>
 
-	return response.extract_vector().get();
+	if(response.status_code() == web::http::status_codes::OK) {
+		return AwsResponse<AwsS3Object>(response.status_code(), "", AwsS3Object(response.extract_vector().get()));
+	}
+
+	return AwsResponse<AwsS3Object>(response.status_code(), response.extract_string().get(), AwsS3Object());
 }
 
 void AwsS3Service::putObject(std::string bucketName, std::string objectName, std::vector<unsigned char> data) {

@@ -1,4 +1,5 @@
 #include "pplx/pplxtasks.h"
+#include <cpprest/basic_types.h>
 
 #include <boost/foreach.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -67,17 +68,19 @@ std::vector<std::string> AwsSqsService::listQueues(std::string prefix) {
 	}
 }
 
-AwsSqsMessage AwsSqsService::receiveMessage(std::string queueUrl, std::string attributeName, int maxNumberOfMessages, int visibilityTimeout, int waitTimeSeconds) {
+AwsResponse<AwsSqsMessage> AwsSqsService::receiveMessage(std::string queueUrl, std::string attributeName, int maxNumberOfMessages, int visibilityTimeout, int waitTimeSeconds) {
 	try {
 		web::http::http_request http_request = awsGetRequest->getSignedHttpRequest("Action=ReceiveMessage&AttributeName=" + attributeName + "&MaxNumberOfMessages=" + boost::lexical_cast<std::string>(maxNumberOfMessages) + "&QueueUrl=" + web::http::uri::encode_data_string(queueUrl) + "&VisibilityTimeout=" + boost::lexical_cast<std::string>(visibilityTimeout) + "&WaitTimeSeconds=" + boost::lexical_cast<std::string>(waitTimeSeconds));
 
-		AwsSqsMessage aws_sqs_message = http_client->request(http_request).then([=](web::http::http_response response){
-			return response.extract_string();
-		}).then([=](utility::string_t str){
+		AwsResponse<AwsSqsMessage> aws_response = http_client->request(http_request).then([=](web::http::http_response response){
+			if(response.status_code() != web::http::status_codes::OK) {
+				return AwsResponse<AwsSqsMessage>(response.status_code(), response.extract_string().get(), AwsSqsMessage());
+			}
+
 			boost::property_tree::ptree pt;
 			std::istringstream iss;
 
-			iss.str(str);
+			iss.str(response.extract_string().get());
 
 			boost::property_tree::read_xml(iss, pt);
 
@@ -86,14 +89,12 @@ AwsSqsMessage AwsSqsService::receiveMessage(std::string queueUrl, std::string at
 			std::string receiptHandle = pt.get_optional<std::string>("ReceiveMessageResponse.ReceiveMessageResult.Message.ReceiptHandle").get_value_or("");
 			std::string messageId = pt.get_optional<std::string>("ReceiveMessageResponse.ReceiveMessageResult.Message.MessageId").get_value_or("");
 
-			AwsSqsMessage aws_sqs_message = AwsSqsMessage(body, md5OfBody, receiptHandle, messageId);
-
-			return aws_sqs_message;
+			return AwsResponse<AwsSqsMessage>(response.status_code(), "", AwsSqsMessage(body, md5OfBody, receiptHandle, messageId));
 		}).get();
 
 		syslog(LOG_INFO | LOG_USER, "ok");
 
-		return aws_sqs_message;
+		return aws_response;
 	} catch (const std::system_error & e) {
 		throw AwsSqsException(e);
 	} catch (const std::exception & e) {

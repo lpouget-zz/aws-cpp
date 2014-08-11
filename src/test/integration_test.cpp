@@ -25,28 +25,28 @@ BOOST_AUTO_TEST_CASE( test_aws_integration_full ) {
 		std::cout << value << std::endl;
 	}
 
-	AwsSqsMessage message = aws_sqs_service.receiveMessage(queues[0]);
+	AwsResponse<AwsSqsMessage> responseSqs = aws_sqs_service.receiveMessage(queues[0]);
 
-	std::cout << message.getBody() << std::endl;
+	std::cout << responseSqs.getAwsObject().getBody() << std::endl;
 
-	aws_sqs_service.deleteMessage(queues[0], message);
+	aws_sqs_service.deleteMessage(queues[0], responseSqs.getAwsObject());
 
 	AwsS3Service aws_s3_service(auth);
 
 	std::string objectName = pt.get<std::string>("aws.test.objectName");
 
-	std::vector<unsigned char> bytesVector = aws_s3_service.getObject(pt.get<std::string>("aws.test.bucketName"), objectName);
+	AwsResponse<AwsS3Object> responseS3 = aws_s3_service.getObject(pt.get<std::string>("aws.test.bucketName"), objectName);
 
 	std::string filename = boost::replace_all_copy(objectName, "/", "");
 	std::ofstream ofs(filename, std::ios_base::out | std::ios_base::ate);
 
-	for(unsigned char c : bytesVector) {
+	for(unsigned char c : responseS3.getAwsObject().getBuffer()) {
 		ofs << c;
 	}
 
 	ofs.close();
 
-	aws_s3_service.putObject("cf-photo-blur", objectName, bytesVector);
+	aws_s3_service.putObject("cf-photo-blur", objectName, responseS3.getAwsObject().getBuffer());
 }
 
 BOOST_AUTO_TEST_SUITE_END()
