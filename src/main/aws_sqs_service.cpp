@@ -5,7 +5,6 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/xml_parser.hpp>
 #include "openssl/hmac.h"
-#include <syslog.h>
 
 #include "stdio.h"
 
@@ -92,8 +91,6 @@ AwsResponse<AwsSqsMessage> AwsSqsService::receiveMessage(std::string queueUrl, s
 			return AwsResponse<AwsSqsMessage>(response.status_code(), "", AwsSqsMessage(body, md5OfBody, receiptHandle, messageId));
 		}).get();
 
-		syslog(LOG_INFO | LOG_USER, "ok");
-
 		return aws_response;
 	} catch (const std::system_error & e) {
 		throw AwsSqsException(e);
@@ -107,7 +104,9 @@ AwsResponse<AwsSqsMessage> AwsSqsService::receiveMessage(std::string queueUrl, s
 
 std::string AwsSqsService::sendMessage(std::string queueUrl, std::string message, int delaySeconds) {
 	try {
-		web::http::http_request http_request = awsGetRequest->getSignedHttpRequest("Action=SendMessage&QueueUrl=" + web::http::uri::encode_data_string(queueUrl) + "&MessageBody=" + web::http::uri::encode_data_string(message) + "&DelaySeconds=" + boost::lexical_cast<std::string>(delaySeconds));
+		web::http::http_request http_request = awsGetRequest->getSignedHttpRequest("Action=SendMessage&DelaySeconds=" + boost::lexical_cast<std::string>(delaySeconds)
+			+ "&MessageBody=" + web::http::uri::encode_data_string(message)
+			+ "&QueueUrl=" + web::http::uri::encode_data_string(queueUrl));
 
 		return http_client->request(http_request).then([=](web::http::http_response response){
 			return response.extract_string();
